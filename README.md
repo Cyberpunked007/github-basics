@@ -1,3 +1,3 @@
 # github-basics
 
-About me
+How to use
