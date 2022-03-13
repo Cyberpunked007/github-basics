@@ -1,0 +1,254 @@
+remote/gfi/ui/base-admin-form/base-admin-form.tsx
+
+{
+
+import React, { ReactNode, useState, useCallback } from 'react';
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Divider,
+  Box,
+} from '@mui/material';
+import styled from 'styled-components';
+import CloseIcon from '@mui/icons-material/Close';
+import useForm from './hooks/use-form.hook';
+export type Label = {
+  title: string;
+  required: boolean;
+};
+export type BaseAdminFormProps = {
+  /**
+   * a node to be rendered in the special component.
+   */
+  children?: ReactNode;
+  /**
+   * @description The title of the form
+   */
+  formTitle: string;
+  /**
+   * @description The disclaimer written at the top of the form contents
+   */
+  disclaimer?: string;
+  /**
+   * @description Contains the label of each text field and whether or not it is required
+   */
+@@ -67,37 +67,6 @@
+  onModalClose?: () => void;
+};
+
+export function BaseAdminForm({
+  children,
+  formTitle,
+  disclaimer,
+  textLabels,
+  primaryButtonText,
+  onPrimaryClick,
+  secondaryButtonText,
+  onSecondaryClick,
+  onModalClose,
+}: BaseAdminFormProps) {
+
+ const {
+    formOpen,
+    handleFormClose,
+    createTextFields,
+    handlePrimaryButton,
+    handleSecondaryButton,
+    isEnabled,
+  } = useForm({
+    textLabels,
+    onPrimaryClick,
+    onSecondaryClick,
+    onModalClose,
+  });
+
+return (
+    <div>
+      <Dialog open={formOpen} onClose={handleFormClose}>
+        <DialogTitle sx={{ bgcolor: '#3056D9', color: 'white' }}>
+          {formTitle}
+          <CloseIcon
+            style={{ float: 'right' }}
+            sx={{ pt: 0.5 }}
+            onClick={handleFormClose}
+            cursor="pointer"
+          />
+        </DialogTitle>
+        <DialogContent>
+          <Box paddingTop="12px">
+            <Typography sx={{ color: '#3056D9' }} variant="caption">
+              {disclaimer}
+            </Typography>
+          </Box>
+          {createTextFields(textLabels)}
+        </DialogContent>
+        {children}
+        <Divider variant="fullWidth" light={true} sx={{ my: '4%' }} />
+        <DialogActions>
+          <Box marginBottom="15px">
+            <Button
+              variant="text"
+              size="small"
+              onClick={handleSecondaryButton}
+              disabled={!isEnabled}
+            >
+              {secondaryButtonText}
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handlePrimaryButton}
+              disabled={!isEnabled}
+            >
+              {primaryButtonText}
+            </Button>
+          </Box>
+        </DialogActions>
+      </Dialog>
+    </div>
+  );
+}
+
+}
+
+
+
+remote/gfi/ui/base-admin-form/components/text-field.component.tsx
+
+{
+
+import React from 'react';
+import { TextField } from '@mui/material';
+
+import { Label } from '../base-admin-form';
+
+interface TextFieldProps {
+  textLabel: Label;
+  handleTextFieldChange: Function;
+}
+
+const TextFieldWithDefaults: React.FC<TextFieldProps> = ({
+  textLabel,
+  handleTextFieldChange,
+}) => {
+  return (
+    <TextField
+      required={textLabel.required}
+      margin="normal"
+      variant="outlined"
+      fullWidth
+      id={textLabel.title}
+      key={textLabel.title}
+      label={textLabel.title}
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+        handleTextFieldChange(event, textLabel.title)
+      }
+    />
+  );
+};
+
+export default TextFieldWithDefaults;
+
+}
+
+
+remote/gfi/ui/base-admin-form/hooks/use-form.hook.tsx
+
+{
+
+import React, { useCallback, useState } from 'react';
+import { Label } from '../base-admin-form';
+import TextFieldWithDefaults from '../components/text-field.component';
+
+/**
+ * TODO: Add docs for what the hook does and what its props are (similar to description in component)
+ */
+
+function useEnable(formValues: Object, textLabels: Label[]) {
+  let numRequired = 0;
+  let dummyArray = [];
+  for (let lab of textLabels) {
+    if (lab.required === true) {
+      numRequired++;
+    }
+    dummyArray.push(lab.title);
+  }
+  const inputKeys = Object.keys(formValues);
+  let myBools = inputKeys.map((formValue) => {
+    if (
+      formValues[formValue].length < 1 &&
+      textLabels[dummyArray.indexOf(formValue)].required === true
+    ) {
+      return false;
+    } else if (
+      formValues[formValue].length >= 1 &&
+      textLabels[dummyArray.indexOf(formValue)].required === true
+    ) {
+      return true;
+    }
+  });
+  let required = myBools.filter((bools) => bools === false || bools === true);
+
+  return !(myBools.includes(false) || required.length < numRequired);
+}
+
+const useForm = ({
+  textLabels,
+  onModalClose,
+  onPrimaryClick,
+  onSecondaryClick,
+}) => {
+  const [formOpen, setFormOpen] = useState(true);
+  const [formValues, setFormValues] = useState({});
+  const isEnabled = useEnable(formValues, textLabels);
+
+  const handleFormClose = useCallback(() => {
+    setFormOpen(false);
+    onModalClose();
+  }, [onModalClose]);
+
+  const handlePrimaryButton = useCallback(() => {
+    onPrimaryClick(formValues);
+  }, [onPrimaryClick, formValues]);
+
+  const handleSecondaryButton = useCallback(() => {
+    onSecondaryClick(formValues);
+  }, [onSecondaryClick, formValues]);
+
+  const handleTextFieldChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    label: string
+  ) => {
+    setFormValues({ ...formValues, [label]: event.target.value });
+  };
+
+  const createTextFields = useCallback(
+    (textLabels) => {
+      return textLabels.map((textLabel: Label) => (
+        <TextFieldWithDefaults
+          key={textLabel.title}
+          textLabel={textLabel}
+          handleTextFieldChange={handleTextFieldChange}
+        />
+      ));
+    },
+    [textLabels, formValues]
+  );
+
+  return {
+    formOpen,
+    handleFormClose,
+    createTextFields,
+    handlePrimaryButton,
+    handleSecondaryButton,
+    isEnabled,
+  };
+};
+
+export default useForm;
+
+}
